@@ -1,7 +1,22 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Input, Table, Button, Modal, Form, InputNumber } from "antd";
+import { TypedUseSelectorHook, useDispatch, useSelector } from "react-redux";
+import {
+  Input,
+  Table,
+  Button,
+  Modal,
+  Form,
+  InputNumber,
+  Descriptions,
+} from "antd";
 import type { ColumnsType, ColumnType } from "antd/es/table";
 import Link from "next/link";
+import { getPicData } from "@/services/api";
+import { picData, StateType } from "../store/index";
+import { PictureData } from "@/interfaces";
+
+const useAppSelector: TypedUseSelectorHook<{ pictures: StateType }> =
+  useSelector;
 
 interface DataType {
   key: string;
@@ -9,6 +24,11 @@ interface DataType {
   description: string;
   createdAt: string;
   fields: { name: string; surname: string; age: number };
+}
+
+enum ModalType {
+  add = "add",
+  picture = "picture",
 }
 
 const columns: ColumnsType<DataType> = [
@@ -35,8 +55,11 @@ const columns: ColumnsType<DataType> = [
 ];
 
 const FormTable: React.FC = () => {
+  const dispatch = useDispatch();
+  const pictureData = useAppSelector((state) => state.pictures.pictureData);
   const [form] = Form.useForm();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showDataModal, setShowDataModal] = useState(false);
   const [items, setItems] = useState<DataType[]>([]);
 
   useEffect(() => {
@@ -53,6 +76,14 @@ const FormTable: React.FC = () => {
     }
   }, [items]);
 
+  useEffect(() => {
+    if (showDataModal) {
+      getPicData().then((res) => {
+        dispatch(picData(res));
+      });
+    }
+  }, [showDataModal, dispatch]);
+
   const [searchText, setSearchText] = useState("");
   const filteredRows = useMemo(
     () =>
@@ -62,16 +93,16 @@ const FormTable: React.FC = () => {
     [items, searchText]
   );
 
-  const showModal = () => {
-    setIsModalOpen(true);
+  const showModal = (modalType: ModalType) => {
+    if (modalType === "add") setIsModalOpen(true);
+    else setShowDataModal(true);
   };
-
-  const handleCancel = () => {
-    setIsModalOpen(false);
+  const handleCancel = (modalType: ModalType) => {
+    if (modalType === "add") setIsModalOpen(false);
+    else setShowDataModal(false);
   };
   const handleSubmit = (values: any) => {
     const { formName, description, ...fields } = values;
-    console.log("values", values);
     const local = localStorage.getItem("items");
     const items = local ? JSON.parse(local) : [];
     items.push({
@@ -98,8 +129,11 @@ const FormTable: React.FC = () => {
           borderRadius: 8,
         }}
       >
-        <Button type="primary" onClick={showModal}>
+        <Button type="primary" onClick={() => showModal(ModalType.add)}>
           Add
+        </Button>
+        <Button type="primary" onClick={() => showModal(ModalType.picture)}>
+          Random Picture
         </Button>
 
         <Input
@@ -119,9 +153,32 @@ const FormTable: React.FC = () => {
         pagination={false}
       />
       <Modal
+        title="Picture"
+        open={showDataModal}
+        onCancel={() => handleCancel(ModalType.picture)}
+        footer={null}
+      >
+        <Descriptions>
+          <Descriptions.Item label="Author">
+            {pictureData?.author}
+          </Descriptions.Item>
+          <Descriptions.Item label="ID">{pictureData?.id}</Descriptions.Item>
+          <Descriptions.Item label="URL">{pictureData?.url}</Descriptions.Item>
+          <Descriptions.Item label="DownloadURL">
+            {pictureData?.download_url}
+          </Descriptions.Item>
+          <Descriptions.Item label="Width">
+            {pictureData?.width}
+          </Descriptions.Item>
+          <Descriptions.Item label="Height">
+            {pictureData?.height}
+          </Descriptions.Item>
+        </Descriptions>
+      </Modal>
+      <Modal
         title="Add Form"
         open={isModalOpen}
-        onCancel={handleCancel}
+        onCancel={() => handleCancel(ModalType.add)}
         footer={null}
       >
         <Form
